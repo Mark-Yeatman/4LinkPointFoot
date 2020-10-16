@@ -59,7 +59,7 @@ classdef BezierSpline < handle
                 if iscell(W)
                     obj.Weights = W;
                 else
-                    obj.Weights = cell{S};
+                    obj.Weights = cell(S,1);
                     for i=1:S
                        obj.Weights{i} = W(i,:,:);
                     end

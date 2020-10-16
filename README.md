@@ -1,1 +1,1 @@
-# 4LinkPointFoot
+# FlatFootBipedModel

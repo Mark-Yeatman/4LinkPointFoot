@@ -15,11 +15,11 @@ classdef flowData < handle
             'Adot',@Adot_Swap_func);
 
         Flags = struct('silent',true,...                            %display runtime outputs
-                       'do_validation',true,...                     %validate impacts and other events
                        'terminate',false,...                        %terminate simulation early
-                       'step_done',false,...                          %step is complete based on EndStep.event_name
+                       'step_done',false,...                        %step is complete based on EndStep.event_name
                        'warnings',true,...
-                       'rigid',true);
+                       'rigid',true,...
+                       'ignore_fall',true);
 
         Impacts = {};     %impact cell array   
      
@@ -30,9 +30,13 @@ classdef flowData < handle
         Phases = struct();      %phase struct
                         
         State = struct('c_phase','NA',...                           %current phase
-                       'c_configs',[],...                           %current configuration 
-                       'PE_datum',0);                               %PE_datum
-                                                
+                             'c_configs',[],...                           %current configuration 
+                             'PE_datum',0);                               %PE_datum
+        
+        PhaseOutputFuncs = {};
+        StepOutputFuncs = {};
+        WalkOutputFuncs = {};
+        
         %Not Structs
         eqnhandle;              %function pointer to dynamics function       
         E_func;                 %function pointer to generalized energy function
@@ -45,6 +49,7 @@ classdef flowData < handle
             %FLOWDATA Construct an instance of this class
             %   Detailed explanation goes here
         end
+        
         function R_gf = getRgf(this)
             %setRgf Rotation matrix based on current slope
             %   Foot/Ineretial Frame to Ground Frame by left multiplication
@@ -54,6 +59,7 @@ classdef flowData < handle
                                0,            0, 1, 0;  
                                0,            0, 0, 1]; 
         end
+        
         function setPhases(this,phaselist)
            %setPhases takes a cell array of phase names and assigns
            %constraint matrices based on naming of files.
@@ -114,6 +120,7 @@ classdef flowData < handle
                end
            end
         end
+        
         function [impact_name,map_funcs] = setNextPhaseAndConfig(this,i_impact)
             %setNextPhaseAndConfig 
             if 0<i_impact && i_impact<=length(this.Impacts)
@@ -140,7 +147,7 @@ classdef flowData < handle
                 %set guard functions
                 this.setImpacts()
 
-                if strcmp(impact.name,this.End_Step.event_name)
+                if any(strcmp(impact.name,this.End_Step.event_name))
                     this.Flags.step_done = true;
                     map_funcs{end+1} = this.End_Step.map;
                 end
@@ -151,7 +158,7 @@ classdef flowData < handle
                 end                
             end
         end
-        function [A,Adot] = getConstraintMtxs(this,x,params)
+        function [A,Adot] = getConstraintMtxs(this,q,qdot)
             %getConstraintMtxs computes the current constraints matrices A,Adot based
             %on current phase and current configuration
             cnum = length(this.State.c_configs);
@@ -159,24 +166,26 @@ classdef flowData < handle
             A = [];
             Adot = [];
             if this.Flags.step_done
-                A = this.End_Step.A(x,params);
-                Adot = this.End_Step.Adot(x,params);
+                A = this.End_Step.A(q,qdot);
+                Adot = this.End_Step.Adot(q,qdot);
             elseif isfield(this.Phases,this.State.c_phase)
-                A = this.Phases.(this.State.c_phase).A(x,params);
-                Adot = this.Phases.(this.State.c_phase).Adot(x,params);
+                A = this.Phases.(this.State.c_phase).A(q,qdot);
+                Adot = this.Phases.(this.State.c_phase).Adot(q,qdot);
             end
             
             for i=1:cnum
-               A = [A;this.Configs.(this.State.c_configs{i}).A(x,params)];
-               Adot = [Adot;this.Configs.(this.State.c_configs{i}).Adot(x,params)];
+               A = [A;this.Configs.(this.State.c_configs{i}).A(q,qdot)];
+               Adot = [Adot;this.Configs.(this.State.c_configs{i}).Adot(q,qdot)];
             end
         end
+
+        function xout = identityImpact(this,xprev,xnext)
+            xout = xnext;
+        end
+    
         function resetFlags(this)
             this.Flags.terminate = false;
             this.Flags.step_done = false;
-        end
-        function xout = identityImpact(this,xprev,xnext)
-            xout = xnext;
         end
     end
 end

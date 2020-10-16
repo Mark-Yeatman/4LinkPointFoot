@@ -1,7 +1,7 @@
 function xnext = impact(xprev,ie)
 %Handle discrete dynamics
 global flowdata
-
+global imp_name
     [imp_name,map_funcs] = flowdata.setNextPhaseAndConfig(ie(end));  
   
     if ~isempty(imp_name)
@@ -30,13 +30,20 @@ global flowdata
 end
 function [xnext,F] = RigidImpactMap(xprev)
     %relabeling matrix
-    global flowdata 
+    global flowdata imp_name
     dim = flowdata.Parameters.dim;
-    params = cell2mat(flowdata.Parameters.Biped.values);
-    if flowdata.Flags.step_done %if you want to swap the coordinates AND THEN apply the map, you need to change this matrix so that the x,y coordinates aren't in the nullspace
-        R = [zeros(1,dim/2);
-             zeros(1,dim/2);
-             0,0,ones(1,dim/2-2);[zeros(dim/2-3,3),flip(-1*eye(dim/2-3),1)]];
+    if flowdata.Flags.step_done || strcmp(imp_name,'FootStrike') %if you want to swap the coordinates AND THEN apply the map, you need to change this matrix so that the x,y coordinates aren't in the nullspace
+%         R = [zeros(1,dim/2);
+%              zeros(1,dim/2);
+%              0,0,ones(1,dim/2-2);[zeros(dim/2-3,3),flip(-1*eye(dim/2-3),1)]];
+        R = zeros(7,7);
+        R(1,1) = 1;
+        R(2,2) = 1;
+        R(3,5) = 1;
+        R(4,6) = 1;
+        R(5,3) = 1;
+        R(6,4) = 1;
+        R(7,7) = 1;
     else
         R=eye(dim/2);
     end
@@ -44,9 +51,9 @@ function [xnext,F] = RigidImpactMap(xprev)
     qdotprev = xprev(dim/2+1:dim)';
 
     qnextmapped =  R*qprev;  
-    
+    params = flowdata.Parameters.Biped.asvec;
     M = M_func(xprev',params);
-    [A,~] = flowdata.getConstraintMtxs(xprev',params);
+    [A,~] = flowdata.getConstraintMtxs(xprev(1:dim/2)',xprev(dim/2+1:end)');
     a = min(size(A)); %number of constraints
     temp = [M,-A';A,zeros(a)]\[M*qdotprev;zeros(a,1)];
     

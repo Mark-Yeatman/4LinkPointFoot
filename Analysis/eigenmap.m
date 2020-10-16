@@ -1,4 +1,4 @@
-function [mapeigs] = eigenmap(xs,period,act_period,vector)
+function [mapeigs] = eigenmap(xstart,period,act_period,vector)
 % EIGENMAP2   Find the eigenvalues of the system's Poincare return map
 %
 % Runs a numerical analysis on the initial conditions for a fixed point.
@@ -16,13 +16,9 @@ dim = flowdata.Parameters.dim;
         act_period = period;
     end
 
-    if act_period > 2
-        delta = 1E-4;
-        deltadot = 1E-3;
-    else
-        delta = 1E-4;
-        deltadot = 1E-3;
-    end
+
+    delta = 1E-2;
+    deltadot = 1E-2;
 
     Omega = zeros(dim,length(vector(vector==1)));
     Y = zeros(dim,length(vector(vector==1)));
@@ -39,28 +35,24 @@ dim = flowdata.Parameters.dim;
     for i=1:dim
         if vector(i) == 1
             if(i<=dim/2)
-                x = xs; x(i) = x(i) - delta;
+                x = xstart; 
+                x(i) = x(i) - delta;
                 Y(i,j) = delta;
             else
-                x = xs; x(i) = x(i) - deltadot;
+                x = xstart; 
+                x(i) = x(i) - deltadot;
                 Y(i,j) = deltadot;
             end
-            flowdata.State.PE_datum = x(2);
-            temp = 0;
-            if isfield(flowdata.Parameters,'Eref_Update')
-                flowdata.State.Eref = flowdata.Parameters.KPBC.Eref.(flowdata.State.c_phase);
-                temp = flowdata.Parameters.Eref_Update.k;
-                flowdata.Parameters.Eref_Update.k = 0;
-            end
-            v = walk(x,period); %FUNCTION CALL IS HERE
-            if isfield(flowdata.Parameters,'Eref_Update')
-                flowdata.Parameters.Eref_Update.k = temp;
-            end
-            Omega(:,j) = v'-xs';
+            load StableSLIPEmbedWorkspace2.mat flowdata
+            disp([i,delta]')
+            flowdata.Flags.silent = true;
+            [v, xout, tout, out_extra] = walk(x,period); %FUNCTION CALL IS HERE
+            Omega(:,j) = v'-xstart';
+            Omega(1,j) = 0;
             j=j+1;
         end
     end
     A = Omega/Y;
     mapeigs = eig(A);
-    %fprintf('max(abs(eigenvalues))=%f\n',max(abs(mapeigs)));
+    fprintf('max(abs(eigenvalues))=%f\n',max(abs(mapeigs)));
 end
